@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  AUTHOR
+  SUBSCRIBER
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  username     String         @unique
+  passwordHash String
+  role         Role           @default(SUBSCRIBER)
+  avatar       String?
+  bio          String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  posts        Post[]
+  pages        Page[]
+  media        Media[]
+  refreshTokens RefreshToken[]
+
+  @@index([email])
+  @@index([username])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  userAgent String?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model Post {
+  id             String     @id @default(cuid())
+  title          String
+  slug           String     @unique
+  content        String     @default("")
+  excerpt        String?
+  status         PostStatus @default(DRAFT)
+  authorId       String
+  author         User       @relation(fields: [authorId], references: [id])
+  featuredImageId String?
+  featuredImage  Media?     @relation("PostFeaturedImage", fields: [featuredImageId], references: [id])
+  categories     Category[] @relation("PostCategories")
+  tags           Tag[]      @relation("PostTags")
+  publishedAt    DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([slug])
+  @@index([authorId])
+  @@index([status])
+}
+
+model Page {
+  id        String     @id @default(cuid())
+  title     String
+  slug      String     @unique
+  content   String     @default("")
+  status    PostStatus @default(DRAFT)
+  authorId  String
+  author    User       @relation(fields: [authorId], references: [id])
+  parentId  String?
+  parent    Page?      @relation("PageChildren", fields: [parentId], references: [id])
+  children  Page[]     @relation("PageChildren")
+  order     Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([slug])
+  @@index([authorId])
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  description String?
+  parentId    String?
+  parent      Category?  @relation("CategoryChildren", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryChildren")
+  posts       Post[]     @relation("PostCategories")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([slug])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  posts     Post[]   @relation("PostTags")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+}
+
+model Media {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  url          String
+  width        Int?
+  height       Int?
+  alt          String?
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  posts        Post[]   @relation("PostFeaturedImage")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([uploadedById])
+}
+
+model Settings {
+  id                String  @id @default("1")
+  siteTitle         String  @default("ReactPress")
+  siteDescription   String  @default("A WordPress clone built with React")
+  siteUrl           String  @default("http://localhost:5173")
+  postsPerPage      Int     @default(10)
+  allowRegistration Boolean @default(true)
+  updatedAt         DateTime @updatedAt
+}
